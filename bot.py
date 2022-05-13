@@ -12,9 +12,9 @@ bot = telebot.TeleBot('5335366767:AAGh2nyrmQS0acJIBkOo99aly3t5YILsgGk');
 def start_message(message):
     bot.send_message(message.chat.id, 'hi, I am simplified EPAM NL bot with customized menu buttons to help you with navigation across major EPAM NL entities. Please use /menu to see all staff')
     
-@bot.message_handler(commands=['policy'])
-def start_message(message):
-    bot.send_message(message.chat.id, 'EPAM NL guideline EPAM Policies and Guides NL https://info.epam.com/policy/netherlands/all-cities/contractual-policies-and-procedures.html')
+#@bot.message_handler(commands=['policy'])
+#def start_message(message):
+#    bot.send_message(message.chat.id, 'EPAM NL guideline EPAM Policies and Guides NL https://info.epam.com/policy/netherlands/all-cities/contractual-policies-and-procedures.html')
 
 @bot.message_handler(commands=['help'])
 def start_message(message):
