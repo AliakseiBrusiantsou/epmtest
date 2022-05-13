@@ -16,9 +16,9 @@ def start_message(message):
 #def start_message(message):
 #    bot.send_message(message.chat.id, 'EPAM NL guideline EPAM Policies and Guides NL https://info.epam.com/policy/netherlands/all-cities/contractual-policies-and-procedures.html')
 
-@bot.message_handler(commands=['help'])
-def start_message(message):
-    bot.send_message(message.chat.id, 'List of available commands: /start /policy /menu /help . We highly recommend to use /menu for all available options. Commands are used for technical bot management.')
+#@bot.message_handler(commands=['help'])
+#def start_message(message):
+#    bot.send_message(message.chat.id, 'List of available commands: /start /policy /menu /help . We highly recommend to use /menu for all available options. Commands are used for technical bot management.')
 
 @bot.message_handler(commands=['menu'])
 def button_message(message):
