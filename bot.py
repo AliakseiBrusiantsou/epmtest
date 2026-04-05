@@ -1,12 +1,11 @@
+import os
 import telebot
 from telebot import types
-import requests
-import re
-import PIL
-from PIL import Image
-from requests import get
+from dotenv import load_dotenv
 
-bot = telebot.TeleBot('5335366767:AAGh2nyrmQS0acJIBkOo99aly3t5YILsgGk');
+load_dotenv()
+
+bot = telebot.TeleBot(os.environ['TELEGRAM_BOT_TOKEN'])
 
 @bot.message_handler(commands=['start'])
 def start_message(message):
