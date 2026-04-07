@@ -1,0 +1,126 @@
+name: Daily Security Check
+
+on:
+  schedule:
+    - cron: '0 6 * * *'   # 6:00 AM UTC every day
+  workflow_dispatch:        # allow manual trigger
+
+jobs:
+  security-scan:
+    name: Security Scan
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install pip-audit
+
+      # ── Static code analysis ──────────────────────────────────────────────
+      - name: Run Bandit (static security analysis)
+        id: bandit
+        run: |
+          bandit -r . \
+            --exclude ./.git,./.venv,./venv \
+            -f txt \
+            -o bandit_report.txt \
+            --exit-zero
+          echo "--- Bandit Report ---"
+          cat bandit_report.txt
+        continue-on-error: true
+
+      # ── Dependency vulnerability scan ─────────────────────────────────────
+      - name: Run pip-audit (dependency vulnerabilities)
+        id: pip_audit
+        run: |
+          pip-audit \
+            --requirement requirements.txt \
+            --format markdown \
+            --output pip_audit_report.md \
+            --progress-spinner off || true
+          echo "--- pip-audit Report ---"
+          cat pip_audit_report.md
+        continue-on-error: true
+
+      # ── Secrets / credentials leak scan ──────────────────────────────────
+      - name: Run Gitleaks (secrets detection)
+        id: gitleaks
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITLEAKS_LICENSE: ${{ secrets.GITLEAKS_LICENSE }}  # optional for public repos
+        continue-on-error: true
+
+      # ── Assemble email body ───────────────────────────────────────────────
+      - name: Build email report
+        id: report
+        run: |
+          DATE=$(date -u +"%Y-%m-%d %H:%M UTC")
+          REPO="${{ github.repository }}"
+          RUN_URL="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+
+          {
+            echo "Security Scan Report"
+            echo "Repository : $REPO"
+            echo "Date       : $DATE"
+            echo "Full run   : $RUN_URL"
+            echo ""
+            echo "=============================="
+            echo " BANDIT — Static Code Analysis"
+            echo "=============================="
+            cat bandit_report.txt 2>/dev/null || echo "Report not generated."
+            echo ""
+            echo "=============================="
+            echo " PIP-AUDIT — Dependency Vulns "
+            echo "=============================="
+            cat pip_audit_report.md 2>/dev/null || echo "Report not generated."
+            echo ""
+            echo "=============================="
+            echo " GITLEAKS — Secrets Detection "
+            echo "=============================="
+            if [ "${{ steps.gitleaks.outcome }}" = "failure" ]; then
+              echo "WARNING: Potential secrets/credentials detected — review the run log."
+            else
+              echo "No secrets detected."
+            fi
+          } > full_report.txt
+
+          echo "body<<EOF" >> "$GITHUB_OUTPUT"
+          cat full_report.txt >> "$GITHUB_OUTPUT"
+          echo "EOF" >> "$GITHUB_OUTPUT"
+
+      # ── Send email ────────────────────────────────────────────────────────
+      - name: Send security report by email
+        uses: dawidd6/action-send-mail@v3
+        with:
+          server_address: smtp.gmail.com
+          server_port: 465
+          secure: true
+          username: ${{ secrets.MAIL_USERNAME }}
+          password: ${{ secrets.MAIL_PASSWORD }}
+          subject: "[${{ github.repository }}] Daily Security Report — ${{ github.run_number }}"
+          to: brusentsov@gmail.com
+          from: Security Bot <${{ secrets.MAIL_USERNAME }}>
+          body: ${{ steps.report.outputs.body }}
+          attachments: bandit_report.txt,pip_audit_report.md
+
+      # ── Upload artifacts (30-day retention) ──────────────────────────────
+      - name: Upload scan artifacts
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: security-reports-${{ github.run_number }}
+          path: |
+            bandit_report.txt
+            pip_audit_report.md
+            full_report.txt
+          retention-days: 30
